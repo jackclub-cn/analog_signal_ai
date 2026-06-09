@@ -6,8 +6,6 @@ Tests all core modules and the main network functionality.
 
 import unittest
 import numpy as np
-import sys
-sys.path.insert(0, '/root/.hermes/kanban/workspaces/t_557d8b04')
 
 from analog_signal_ai.core.neuron_layer import NeuronLayer
 from analog_signal_ai.core.event_queue import EventQueue
