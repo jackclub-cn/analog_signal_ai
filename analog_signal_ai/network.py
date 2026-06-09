@@ -171,44 +171,56 @@ class AnalogNetwork:
         for step in range(steps):
             current_time = step * self.dt
             
-            # Process events at current time
+            # Process events at current time (spikes arriving now)
             events = self.event_queue.pop_events_at_time(current_time)
             
-            if events:
-                # Accumulate inputs to hidden layer
-                hidden_inputs = np.zeros(self.n_hidden, dtype=np.float32)
-                for neuron_id, weight in events:
-                    if neuron_id < self.n_inputs:
-                        # Input → Hidden
-                        propagated = self.input_hidden_synapses.propagate(neuron_id, current_time)
-                        for arrival_time, post_id, w in propagated:
-                            if abs(arrival_time - current_time) < self.dt:
-                                hidden_inputs[post_id] += w
-                                
-                # Update hidden neurons
-                hidden_spikes = self.hidden_neurons.integrate(hidden_inputs, current_time, self.dt)
-                
-                # Propagate hidden spikes to output
-                output_inputs = np.zeros(self.n_outputs, dtype=np.float32)
-                for pre_id in hidden_spikes:
-                    propagated = self.hidden_output_synapses.propagate(pre_id, current_time)
+            # Separate events by destination layer
+            hidden_inputs = np.zeros(self.n_hidden, dtype=np.float32)
+            output_inputs = np.zeros(self.n_outputs, dtype=np.float32)
+            
+            for neuron_id, weight in events:
+                # neuron_id indicates which neuron the spike is destined for
+                # Input spikes (0..n_inputs-1) → propagate to hidden layer
+                # Hidden spikes (n_inputs..n_inputs+n_hidden-1) → integrate into hidden neurons
+                # Output spikes (n_inputs+n_hidden..) → integrate into output neurons
+                if neuron_id < self.n_inputs:
+                    # Input spike - propagate through input→hidden synapses
+                    propagated = self.input_hidden_synapses.propagate(neuron_id, current_time)
                     for arrival_time, post_id, w in propagated:
-                        if abs(arrival_time - current_time) < self.dt:
-                            output_inputs[post_id] += w
-                            
-                # Update output neurons
-                output_spikes = self.output_neurons.integrate(output_inputs, current_time, self.dt)
-                
-                # Record spikes
-                spike_history['hidden'].extend([(current_time, spike_id) for spike_id in hidden_spikes])
-                spike_history['output'].extend([(current_time, spike_id) for spike_id in output_spikes])
-                
-                # Record to decoder
-                for spike_id in output_spikes:
-                    self.output_decoder.record_spike(spike_id, current_time)
-                    
-                self.stats['total_spikes'] += len(hidden_spikes) + len(output_spikes)
-                
+                        # Schedule spike to arrive at hidden neuron at arrival_time
+                        self.event_queue.push(arrival_time, self.n_inputs + post_id, w)
+                elif neuron_id < self.n_inputs + self.n_hidden:
+                    # Hidden spike arriving - add to hidden_inputs for integration
+                    hidden_idx = neuron_id - self.n_inputs
+                    hidden_inputs[hidden_idx] += weight
+                else:
+                    # Output spike arriving - add to output_inputs for integration
+                    output_idx = neuron_id - self.n_inputs - self.n_hidden
+                    output_inputs[output_idx] += weight
+            
+            # Update hidden neurons (always, for decay)
+            hidden_spikes = self.hidden_neurons.integrate(hidden_inputs, current_time, self.dt)
+            
+            # Propagate hidden spikes to output layer
+            for pre_id in hidden_spikes:
+                propagated = self.hidden_output_synapses.propagate(pre_id, current_time)
+                for arrival_time, post_id, w in propagated:
+                    # Schedule spike to arrive at output layer at arrival_time
+                    # Use neuron_id = n_inputs + n_hidden + post_id for output neuron
+                    self.event_queue.push(arrival_time, self.n_inputs + self.n_hidden + post_id, w)
+            
+            # Update output neurons (always, for decay)
+            output_spikes = self.output_neurons.integrate(output_inputs, current_time, self.dt)
+            
+            # Record spikes
+            spike_history['hidden'].extend([(current_time, spike_id) for spike_id in hidden_spikes])
+            spike_history['output'].extend([(current_time, spike_id) for spike_id in output_spikes])
+            
+            # Record to decoder
+            for spike_id in output_spikes:
+                self.output_decoder.record_spike(spike_id, current_time)
+            
+            self.stats['total_spikes'] += len(hidden_spikes) + len(output_spikes)
             self.stats['total_time_steps'] += 1
             
         # Decode output
