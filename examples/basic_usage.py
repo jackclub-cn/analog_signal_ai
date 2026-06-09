@@ -8,9 +8,6 @@ Demonstrates:
 4. Performance comparison
 """
 
-import sys
-sys.path.insert(0, '/root/.hermes/kanban/workspaces/t_557d8b04')
-
 import numpy as np
 from analog_signal_ai import AnalogNetwork
 
