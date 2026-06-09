@@ -175,7 +175,8 @@ print(f"Weight change (pre after post): {delta_w}")  # Negative
 Run the comprehensive demo:
 
 ```bash
-python3 examples/working_demo.py
+cd /path/to/analog_signal_ai
+PYTHONPATH=. python3 examples/basic_usage.py
 ```
 
 This demonstrates:
@@ -185,6 +186,7 @@ This demonstrates:
 - Synaptic propagation
 - Input encoding and output decoding
 - Integrated network simulation
+- Performance comparison across network sizes
 
 ## API Reference
 
@@ -334,16 +336,33 @@ Compared to Transformer with same network size:
 - **Training samples**: 5-20x fewer needed
 - **Sequence length**: Unlimited (constant memory)
 
-## Architecture Document
+## Architecture Details
 
-For detailed technical specifications, see `architecture_document.md` which includes:
+Technical details are documented inline in the source code:
 
-- Mathematical foundations of core algorithms
-- Hardware-to-software mapping
-- Complete API specifications
-- Computational complexity analysis
-- Performance benchmarks and validation
-- Risk mitigation strategies
+### Mathematical Foundations
+
+- **Neuron dynamics**: `analog_signal_ai/core/neuron_layer.py` - Exponential decay integration
+- **STDP learning**: `analog_signal_ai/learning/stdp_learner.py` - Spike-timing-dependent plasticity formula
+- **Spike routing**: `analog_signal_ai/core/synapse_layer.py` - Sparse connection propagation
+- **Event handling**: `analog_signal_ai/core/event_queue.py` - Priority queue implementation
+
+### Hardware-to-Software Mapping
+
+The framework runs on standard CPU hardware without specialized neuromorphic chips:
+- Uses NumPy for vectorized operations
+- Uses scipy.sparse for memory-efficient connectivity
+- No GPU/TPU dependencies required
+
+### Computational Complexity
+
+| Operation | Complexity | Notes |
+|-----------|------------|-------|
+| `forward()` | O(K × active_neurons) | K = time steps |
+| `train()` | O(N × K × connections) | N = samples |
+| Memory | O(connections) | Sparse matrix storage |
+
+For detailed API specifications, see the docstrings in each module file.
 
 ## Limitations
 
@@ -378,9 +397,10 @@ This framework is based on theoretical research from:
 
 ## Validation Status
 
-✅ Core algorithms implemented and tested (56 tests passing)
+✅ Core algorithms implemented and tested (23 tests passing)
 ✅ Memory efficiency verified (160MB for 10K network)
 ✅ Speed improvement validated (6.5x in preliminary benchmark)
+✅ Basic usage examples run successfully
 ⏳ Training benchmarks pending
 ⏳ Application benchmarks (MNIST, CIFAR-10) pending
 
